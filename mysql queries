@@ -1,0 +1,119 @@
+CREATE DATABASE walmart_db ;
+USE walmart_db ;
+
+CREATE TABLE walmart (
+  invoice_id       INT             NOT NULL,
+  Branch           VARCHAR(100)    NOT NULL,
+  City             VARCHAR(100)    NOT NULL,
+  category         VARCHAR(100)    NOT NULL,
+  unit_price       DECIMAL(10,2)   NOT NULL,
+  quantity         DECIMAL(10,2)   NOT NULL,
+  date             DATE            NOT NULL,
+  time             TIME            NOT NULL,
+  payment_method   VARCHAR(50)     NOT NULL,
+  rating           FLOAT           NOT NULL,
+  profit_margin    FLOAT           NOT NULL,
+  Total            DECIMAL(12,2)   NOT NULL,
+  PRIMARY KEY (invoice_id)
+);
+
+select * from walmart;
+
+select Branch , category , avg(rating) 
+from walmart 
+group by branch , category ;
+
+SELECT Branch , avg(rating) , count(*) from walmart
+group by Branch;
+
+#Walmart Business Problems
+
+#1.Analyze Payment Methods and Sales
+
+select payment_method ,   count(invoice_id) as `Sales Per Payment_Method` , sum(quantity) as no_qty_sold
+from walmart 
+group by payment_method ;
+
+#2.Identify the Highest -Rated Category in Each Branch
+select Branch , category , round(avg_rating,2) from 
+(select Branch , category , avg(rating) as avg_rating,  
+rank() over (partition  by branch order by avg(rating) desc) as `ranking`
+from walmart 
+group by branch , category ) sq where `ranking` = 1 ;
+
+#Q3: Identify the busiest day for each branch based on the number of transactions
+
+select * from walmart ;
+
+
+SELECT branch, day_name, no_transactions
+FROM (
+    SELECT 
+        branch,
+        DAYNAME(STR_TO_DATE(date, '%d/%m/%Y')) AS day_name,
+        COUNT(*) AS no_transactions,
+        RANK() OVER(PARTITION BY branch ORDER BY COUNT(*) DESC) AS `rank`
+    FROM walmart
+    GROUP BY branch, day_name
+) AS ranked
+WHERE `rank` = 1;
+
+-- Q4: Calculate the total quantity of items sold per payment method
+SELECT * from walmart;
+select payment_method , sum(quantity) as no_qty_sold
+from walmart 
+group by payment_method;
+
+#Q5: Determine the average, minimum, and maximum rating of categories for each city
+SELECT * from walmart;
+
+select  city ,category , round(avg(rating),2) as Avg_Rating , min(rating) as Min_Rating, max(rating) as Max_Rating 
+from walmart 
+group by category , city ;
+-- Q6: Calculate the total profit for each category
+
+select category , round(sum(unit_price * quantity * profit_margin),0) as total_profit
+from walmart 
+group by category 
+order by total_profit desc ;
+
+-- Q7: Determine the most common payment method for each branch
+select * from walmart;
+
+select  branch , payment_method , `no_of_trans` from  
+
+(select branch , payment_method  , count(*) as `no_of_trans` ,
+rank() over (partition by branch order by count(*) desc) as `rank`
+from walmart
+group by branch , payment_method) as sq 
+where `rank` = 1;
+
+-- Q8: Categorize sales into Morning, Afternoon, and Evening shifts
+select * from walmart ;
+select branch , count(*) as num_invoices , 
+case when Hour(Time(time)) < 12 then 'Morning'
+when  Hour(Time(time)) between 12  and 17 then 'afternoon'
+else 'evening'
+end as `shift`
+from walmart
+group by branch , shift
+order by branch asc;
+
+-- Q9: Identify the 5 branches with the highest revenue decrease ratio from last year to current year (e.g., 2022 to 2023)
+SELECT branch, 
+       revenue_last_year, 
+       revenue_current_year,
+       (revenue_last_year - revenue_current_year) / revenue_last_year AS decrease_ratio
+FROM (
+    SELECT branch,
+           SUM(CASE WHEN YEAR(date) = 2022 THEN Total ELSE 0 END) AS revenue_last_year,
+           SUM(CASE WHEN YEAR(date) = 2023 THEN Total ELSE 0 END) AS revenue_current_year
+    FROM walmart
+    GROUP BY branch
+) sq
+WHERE revenue_last_year > 0
+ORDER BY decrease_ratio DESC
+LIMIT 5;
+
+
+
